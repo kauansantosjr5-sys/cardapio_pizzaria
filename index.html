@@ -103,6 +103,15 @@ const CONFIG = {
         { n: "Prestígio",       p: 40.00, d: "Chocolate ao leite com coco." },
         { n: "Romeu e Julieta", p: 40.00, d: "Mussarela com goiabada." }
       ]
+    },
+    {
+      id: "bebidas", nome: "Bebidas", resumo: "Refrigerante gelado pra acompanhar", bebida: true,
+      itens: [
+        { n: "Coca-Cola 1L",   p: 13.99, d: "Garrafa 1 litro, bem gelada." },
+        { n: "Coca-Cola 1,5L", p: 13.99, d: "Garrafa 1,5 litro, bem gelada." },
+        { n: "Fanta 1L",       p: 13.99, d: "Garrafa 1 litro, bem gelada." },
+        { n: "Fanta 1,5L",     p: 13.99, d: "Garrafa 1,5 litro, bem gelada." }
+      ]
     }
   ]
 };
@@ -341,7 +350,19 @@ const CONFIG = {
   const slug = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                      .toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+  function marcaBebida(){
+    const base = "#f2e3cd", traco = "#8a5a0d";
+    return '<svg viewBox="0 0 80 80" role="img" aria-hidden="true">' +
+           '<rect width="80" height="80" fill="' + base + '"/>' +
+           '<path d="M33 12h14v11l7 9v32a4 4 0 0 1-4 4H30a4 4 0 0 1-4-4V32l7-9z" ' +
+             'fill="none" stroke="' + traco + '" stroke-width="2.2" stroke-linejoin="round"/>' +
+           '<path d="M33 12h14" stroke="' + traco + '" stroke-width="2.4" stroke-linecap="round"/>' +
+           '<path d="M27 46h26" stroke="' + traco + '" stroke-width="1.6" stroke-dasharray="3 4" opacity=".65"/>' +
+           '</svg>';
+  }
+
   function marca(catId){
+    if (catId === "bebidas") return marcaBebida();
     const doce = catId === "doces";
     const base = doce ? "#f7ece0" : "#f2e3cd";
     const traco = doce ? "#8b1a17" : "#8a5a0d";
@@ -495,7 +516,7 @@ const CONFIG = {
   function saboresParaMeio(){
     const out = [];
     CONFIG.categorias.forEach(function(cat){
-      if (cat.id === "doces") return;
+      if (cat.id === "doces" || cat.bebida) return;
       cat.itens.forEach(function(it){ out.push(it.n); });
     });
     return out;
@@ -652,7 +673,7 @@ const CONFIG = {
     CONFIG.categorias.forEach(function(cat){
       cat.itens.forEach(function(it, idx){
         const q = carrinho[cat.id + ":" + idx];
-        if (q) out.push({ nome: it.n, preco: it.p, q: q });
+        if (q) out.push({ nome: it.n, preco: it.p, q: q, bebida: !!cat.bebida });
       });
     });
     return out;
@@ -660,27 +681,32 @@ const CONFIG = {
 
   function conta(){
     const ped = avulsas();
-    const pizzas = ped.reduce(function(s, i){ return s + i.q; }, 0) + combos.length * 2 + meios.length;
+    const pedPizzas = ped.filter(function(i){ return !i.bebida; });
+    const bebidas = ped.filter(function(i){ return i.bebida; }).reduce(function(s, i){ return s + i.q; }, 0);
+    const pizzas = pedPizzas.reduce(function(s, i){ return s + i.q; }, 0) + combos.length * 2 + meios.length;
     const base = ped.reduce(function(s, i){ return s + i.preco * i.q; }, 0) +
                  combos.reduce(function(s, c){ return s + c.preco; }, 0) +
                  meios.reduce(function(s, m){ return s + m.preco; }, 0);
     const extraBorda = borda ? CONFIG.borda.preco * pizzas : 0;
-    return { ped: ped, pizzas: pizzas, total: base + extraBorda, extraBorda: extraBorda };
+    return { ped: ped, pizzas: pizzas, bebidas: bebidas, total: base + extraBorda, extraBorda: extraBorda };
   }
 
   function atualiza(){
     const c = conta();
+    const itens = c.pizzas + c.bebidas;
     el("total").textContent = brl(c.total);
-    if (c.pizzas === 0) {
+    if (itens === 0) {
       el("resumo").textContent = "Nenhum item";
     } else {
-      const partes = [c.pizzas + (c.pizzas === 1 ? " pizza" : " pizzas")];
+      const partes = [];
+      if (c.pizzas) partes.push(c.pizzas + (c.pizzas === 1 ? " pizza" : " pizzas"));
       if (combos.length) partes.push(combos.length + (combos.length === 1 ? " combo" : " combos"));
       if (meios.length) partes.push(meios.length + (meios.length === 1 ? " meio a meio" : " meios a meio"));
+      if (c.bebidas) partes.push(c.bebidas + (c.bebidas === 1 ? " bebida" : " bebidas"));
       if (borda) partes.push("borda " + borda.toLowerCase());
       el("resumo").textContent = partes.join(" · ");
     }
-    el("barra").dataset.ativa = c.pizzas > 0 ? "true" : "false";
+    el("barra").dataset.ativa = itens > 0 ? "true" : "false";
   }
 
   el("limpar").onclick = function(){
@@ -701,7 +727,7 @@ const CONFIG = {
 
   el("enviar").onclick = function(){
     const c = conta();
-    if (c.pizzas === 0) return;
+    if (c.pizzas + c.bebidas === 0) return;
 
     let msg = "Olá! Quero fazer um pedido pelo cardápio:\n\n";
     combos.forEach(function(x){
