@@ -560,6 +560,7 @@ const CONFIG = {
     nomesAtual = f.sabores;
     el("sheet-tit").textContent = CONFIG.combo.titulo + " — " + brl(f.preco);
     el("sheet-sub").textContent = "Escolha 2 sabores. Quer a mesma pizza duas vezes? Toque duas vezes no sabor.";
+    el("sheet-cancel").textContent = "Cancelar";
     montaBotoesSheet();
     sheet.hidden = false;
     document.body.classList.add("travado");
@@ -571,6 +572,7 @@ const CONFIG = {
     nomesAtual = saboresParaMeio();
     el("sheet-tit").textContent = CONFIG.meioAMeio.titulo;
     el("sheet-sub").textContent = "Escolha 2 sabores diferentes. Vale o valor do sabor mais caro.";
+    el("sheet-cancel").textContent = "Cancelar";
     montaBotoesSheet();
     sheet.hidden = false;
     document.body.classList.add("travado");
@@ -603,12 +605,18 @@ const CONFIG = {
       const f = CONFIG.combo.faixas[faixaAberta];
       combos.push({ faixa: faixaAberta, preco: f.preco, sabores: escolha.slice() });
       pintaCombos();
+      fechaSheet();
     } else if (sheetModo === "meio"){
       const p1 = precoDoSabor(escolha[0]), p2 = precoDoSabor(escolha[1]);
       meios.push({ sabores: escolha.slice(), preco: Math.max(p1, p2) });
       pintaMeios();
+      // continua na mesma tela: dá pra montar outra pizza meio a meio direto, sem reabrir nada
+      escolha = [];
+      montaBotoesSheet();
+      el("sheet-sub").textContent = meios.length + (meios.length === 1 ? " pizza meio a meio adicionada. " : " pizzas meio a meio adicionadas. ") +
+                                     "Escolha mais 2 sabores pra outra pizza, ou toque em Concluir.";
+      el("sheet-cancel").textContent = "Concluir";
     }
-    fechaSheet();
     atualiza();
   };
 
