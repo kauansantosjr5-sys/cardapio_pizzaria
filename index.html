@@ -534,6 +534,7 @@ const CONFIG = {
   let faixaAberta = null, escolha = [], sheetModo = null, nomesAtual = [];
 
   function montaBotoesSheet(){
+    const scrollAntes = caixaSabores.scrollTop;
     caixaSabores.innerHTML = "";
     nomesAtual.forEach(function(nome){
       const b = document.createElement("button");
@@ -551,6 +552,7 @@ const CONFIG = {
       caixaSabores.appendChild(b);
     });
     redesenha();
+    caixaSabores.scrollTop = scrollAntes;
   }
 
   function abreSheet(i){
