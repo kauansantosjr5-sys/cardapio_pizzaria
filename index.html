@@ -42,6 +42,15 @@ const CONFIG = {
     ]
   },
 
+  // ---------- MEIO A MEIO ----------
+  // Pizza única dividida em 2 sabores à escolha (qualquer sabor salgado do cardápio).
+  // Vale o preço do sabor mais caro dos dois escolhidos.
+  meioAMeio: {
+    ativo: true,
+    titulo: "Meio a Meio",
+    chamada: "Duas metades, dois sabores à sua escolha. Vale o valor do sabor mais caro."
+  },
+
   // Um item só sai da regra do nome se você escrever img: "link-ou-arquivo.jpg" nele.
   categorias: [
     {
@@ -323,6 +332,7 @@ const CONFIG = {
 (function(){
   const carrinho = {};
   const combos = [];
+  const meios = [];
   let borda = null;
 
   const brl  = v => CONFIG.moeda + " " + v.toFixed(2).replace(".", ",");
@@ -411,6 +421,25 @@ const CONFIG = {
     secoes.push(sec);
   }
 
+  const meioOn = CONFIG.meioAMeio && CONFIG.meioAMeio.ativo;
+  if (meioOn){
+    criaAba(CONFIG.meioAMeio.titulo, "sec-meio", true);
+    const sec = document.createElement("section");
+    sec.id = "sec-meio";
+    sec.innerHTML = '<div class="promo-cab"><h2>' + CONFIG.meioAMeio.titulo + '</h2><p>' +
+                    CONFIG.meioAMeio.chamada + '</p></div>' +
+                    '<div class="faixa">' +
+                      '<div class="faixa-topo">' +
+                        '<div><small>Pizza grande dividida em 2 sabores, do jeito que você quiser</small></div>' +
+                        '<button class="montar">Escolher sabores</button>' +
+                      '</div>' +
+                      '<div class="escolhidos" id="escolhidos-meio"></div>' +
+                    '</div>';
+    sec.querySelector(".montar").onclick = function(){ abreSheetMeio(); };
+    lista.appendChild(sec);
+    secoes.push(sec);
+  }
+
   CONFIG.categorias.forEach(function(cat){
     criaAba(cat.nome, "sec-" + cat.id, false);
     const sec = document.createElement("section");
@@ -463,38 +492,72 @@ const CONFIG = {
     secoes.push(sec);
   });
 
-  const sheet = el("sheet"), caixaSabores = el("sabores"), btnOk = el("sheet-ok");
-  let faixaAberta = null, escolha = [];
+  function saboresParaMeio(){
+    const out = [];
+    CONFIG.categorias.forEach(function(cat){
+      if (cat.id === "doces") return;
+      cat.itens.forEach(function(it){ out.push(it.n); });
+    });
+    return out;
+  }
 
-  function abreSheet(i){
-    faixaAberta = i; escolha = [];
-    const f = CONFIG.combo.faixas[i];
-    el("sheet-tit").textContent = CONFIG.combo.titulo + " — " + brl(f.preco);
-    el("sheet-sub").textContent = "Escolha 2 sabores. Quer a mesma pizza duas vezes? Toque duas vezes no sabor.";
+  function precoDoSabor(nome){
+    let achado = 0;
+    CONFIG.categorias.forEach(function(cat){
+      cat.itens.forEach(function(it){ if (it.n === nome) achado = it.p; });
+    });
+    return achado;
+  }
+
+  const sheet = el("sheet"), caixaSabores = el("sabores"), btnOk = el("sheet-ok");
+  let faixaAberta = null, escolha = [], sheetModo = null, nomesAtual = [];
+
+  function montaBotoesSheet(){
     caixaSabores.innerHTML = "";
-    f.sabores.forEach(function(s){
+    nomesAtual.forEach(function(nome){
       const b = document.createElement("button");
       b.type = "button";
-      b.innerHTML = '<span>' + s + '</span><span class="conta"></span>';
+      const rotuloPreco = sheetModo === "meio" ? " — " + brl(precoDoSabor(nome)) : "";
+      b.innerHTML = '<span>' + nome + rotuloPreco + '</span><span class="conta"></span>';
       b.setAttribute("aria-pressed", "false");
       b.onclick = function(){
-        const vezes = escolha.filter(function(x){ return x === s; }).length;
-        if (escolha.length < 2) escolha.push(s);
-        else if (vezes > 0) escolha = escolha.filter(function(x){ return x !== s; });
+        const vezes = escolha.filter(function(x){ return x === nome; }).length;
+        if (escolha.length < 2) escolha.push(nome);
+        else if (vezes > 0) escolha = escolha.filter(function(x){ return x !== nome; });
         else return;
         redesenha();
       };
       caixaSabores.appendChild(b);
     });
     redesenha();
+  }
+
+  function abreSheet(i){
+    sheetModo = "combo";
+    faixaAberta = i; escolha = [];
+    const f = CONFIG.combo.faixas[i];
+    nomesAtual = f.sabores;
+    el("sheet-tit").textContent = CONFIG.combo.titulo + " — " + brl(f.preco);
+    el("sheet-sub").textContent = "Escolha 2 sabores. Quer a mesma pizza duas vezes? Toque duas vezes no sabor.";
+    montaBotoesSheet();
+    sheet.hidden = false;
+    document.body.classList.add("travado");
+  }
+
+  function abreSheetMeio(){
+    sheetModo = "meio";
+    faixaAberta = null; escolha = [];
+    nomesAtual = saboresParaMeio();
+    el("sheet-tit").textContent = CONFIG.meioAMeio.titulo;
+    el("sheet-sub").textContent = "Escolha 2 sabores diferentes. Vale o valor do sabor mais caro.";
+    montaBotoesSheet();
     sheet.hidden = false;
     document.body.classList.add("travado");
   }
 
   function redesenha(){
-    const f = CONFIG.combo.faixas[faixaAberta];
     Array.prototype.forEach.call(caixaSabores.children, function(b, i){
-      const nome = f.sabores[i];
+      const nome = nomesAtual[i];
       const vezes = escolha.filter(function(x){ return x === nome; }).length;
       b.setAttribute("aria-pressed", vezes > 0 ? "true" : "false");
       b.querySelector(".conta").textContent = vezes === 2 ? "2x" : (vezes === 1 ? "1x" : "");
@@ -507,6 +570,7 @@ const CONFIG = {
     sheet.hidden = true;
     document.body.classList.remove("travado");
     faixaAberta = null;
+    sheetModo = null;
   }
   el("sheet-cancel").onclick = fechaSheet;
   el("sheet-fundo").onclick = fechaSheet;
@@ -514,10 +578,16 @@ const CONFIG = {
 
   btnOk.onclick = function(){
     if (escolha.length !== 2) return;
-    const f = CONFIG.combo.faixas[faixaAberta];
-    combos.push({ faixa: faixaAberta, preco: f.preco, sabores: escolha.slice() });
+    if (sheetModo === "combo"){
+      const f = CONFIG.combo.faixas[faixaAberta];
+      combos.push({ faixa: faixaAberta, preco: f.preco, sabores: escolha.slice() });
+      pintaCombos();
+    } else if (sheetModo === "meio"){
+      const p1 = precoDoSabor(escolha[0]), p2 = precoDoSabor(escolha[1]);
+      meios.push({ sabores: escolha.slice(), preco: Math.max(p1, p2) });
+      pintaMeios();
+    }
     fechaSheet();
-    pintaCombos();
     atualiza();
   };
 
@@ -540,6 +610,26 @@ const CONFIG = {
         li.appendChild(x);
         box.appendChild(li);
       });
+    });
+  }
+
+  function textoMeio(m){
+    return m.sabores[0] === m.sabores[1] ? "2x " + m.sabores[0] : m.sabores[0] + " / " + m.sabores[1];
+  }
+
+  function pintaMeios(){
+    const box = el("escolhidos-meio");
+    if (!box) return;
+    box.innerHTML = "";
+    meios.forEach(function(m, idx){
+      const li = document.createElement("div");
+      li.className = "escolhido-li";
+      li.innerHTML = '<span>' + textoMeio(m) + ' — ' + brl(m.preco) + '</span>';
+      const x = document.createElement("button");
+      x.className = "tirar"; x.textContent = "tirar";
+      x.onclick = function(){ meios.splice(idx, 1); pintaMeios(); atualiza(); };
+      li.appendChild(x);
+      box.appendChild(li);
     });
   }
 
@@ -570,9 +660,10 @@ const CONFIG = {
 
   function conta(){
     const ped = avulsas();
-    const pizzas = ped.reduce(function(s, i){ return s + i.q; }, 0) + combos.length * 2;
+    const pizzas = ped.reduce(function(s, i){ return s + i.q; }, 0) + combos.length * 2 + meios.length;
     const base = ped.reduce(function(s, i){ return s + i.preco * i.q; }, 0) +
-                 combos.reduce(function(s, c){ return s + c.preco; }, 0);
+                 combos.reduce(function(s, c){ return s + c.preco; }, 0) +
+                 meios.reduce(function(s, m){ return s + m.preco; }, 0);
     const extraBorda = borda ? CONFIG.borda.preco * pizzas : 0;
     return { ped: ped, pizzas: pizzas, total: base + extraBorda, extraBorda: extraBorda };
   }
@@ -585,6 +676,7 @@ const CONFIG = {
     } else {
       const partes = [c.pizzas + (c.pizzas === 1 ? " pizza" : " pizzas")];
       if (combos.length) partes.push(combos.length + (combos.length === 1 ? " combo" : " combos"));
+      if (meios.length) partes.push(meios.length + (meios.length === 1 ? " meio a meio" : " meios a meio"));
       if (borda) partes.push("borda " + borda.toLowerCase());
       el("resumo").textContent = partes.join(" · ");
     }
@@ -594,6 +686,7 @@ const CONFIG = {
   el("limpar").onclick = function(){
     Object.keys(carrinho).forEach(function(k){ delete carrinho[k]; });
     combos.length = 0;
+    meios.length = 0;
     borda = null;
     Array.prototype.forEach.call(opBox.children, function(x){ x.setAttribute("aria-pressed", "false"); });
     Array.prototype.forEach.call(document.querySelectorAll(".prato"), function(card){
@@ -602,6 +695,7 @@ const CONFIG = {
       card.querySelector(".qtd").dataset.vazio = "true";
     });
     pintaCombos();
+    pintaMeios();
     atualiza();
   };
 
@@ -613,7 +707,10 @@ const CONFIG = {
     combos.forEach(function(x){
       msg += CONFIG.combo.titulo + " " + brl(x.preco) + " — " + textoCombo(x) + "\n";
     });
-    if (combos.length && c.ped.length) msg += "\n";
+    meios.forEach(function(m){
+      msg += "Meio a meio — " + textoMeio(m) + " — " + brl(m.preco) + "\n";
+    });
+    if ((combos.length || meios.length) && c.ped.length) msg += "\n";
     c.ped.forEach(function(i){ msg += i.q + "x " + i.nome + " — " + brl(i.preco * i.q) + "\n"; });
     if (borda) {
       msg += "\nBorda " + borda.toLowerCase() + " em " + c.pizzas +
