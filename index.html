@@ -348,9 +348,18 @@ const CONFIG = {
            recheio + '</svg>';
   }
 
+  // 1a tentativa: pasta fotos/  ·  2a tentativa: mesmo nível do index  ·  depois, o desenho
   document.addEventListener("error", function(e){
-    const box = e.target && e.target.tagName === "IMG" ? e.target.closest(".foto") : null;
-    if (box) box.innerHTML = marca(box.dataset.cat);
+    const img = e.target;
+    if (!img || img.tagName !== "IMG") return;
+    const box = img.closest(".foto");
+    if (!box) return;
+    if (img.dataset.plano === "b") {
+      box.innerHTML = marca(box.dataset.cat);
+    } else {
+      img.dataset.plano = "b";
+      img.src = img.dataset.solto;
+    }
   }, true);
 
   document.title = "Cardápio — " + CONFIG.nome;
@@ -411,13 +420,14 @@ const CONFIG = {
 
     cat.itens.forEach(function(it, idx){
       const chave = cat.id + ":" + idx;
-      const caminho = it.img || (CONFIG.pastaFotos + slug(it.n) + CONFIG.extFotos);
+      const arquivo = slug(it.n) + CONFIG.extFotos;
+      const caminho = it.img || (CONFIG.pastaFotos + arquivo);
 
       const card = document.createElement("article");
       card.className = "prato";
       card.innerHTML =
         '<div class="foto" data-cat="' + cat.id + '">' +
-          '<img src="' + caminho + '" alt="Pizza ' + it.n + '" loading="lazy">' +
+          '<img src="' + caminho + '" data-solto="' + arquivo + '" alt="Pizza ' + it.n + '" loading="lazy">' +
         '</div>' +
         '<div class="prato-txt">' +
           '<h3 class="prato-nome">' + it.n + '</h3>' +
